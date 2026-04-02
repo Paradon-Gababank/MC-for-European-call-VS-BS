@@ -1,0 +1,283 @@
+
+<style>
+  .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; }
+  .metric-label { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px; }
+  .metric-value { font-size: 20px; font-weight: 500; margin: 0; color: var(--color-text-primary); }
+  .metric-sub { font-size: 11px; color: var(--color-text-tertiary); margin: 2px 0 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .row > * { flex: 1; min-width: 110px; }
+  .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .slider-label { font-size: 13px; color: var(--color-text-secondary); width: 95px; flex-shrink: 0; }
+  .slider-val { font-size: 13px; font-weight: 500; width: 60px; text-align: right; flex-shrink: 0; color: var(--color-text-primary); }
+  input[type=range] { flex: 1; }
+  h3 { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  #runBtn { width: 100%; padding: 8px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); font-size: 14px; cursor: pointer; margin-top: 8px; }
+  #runBtn:hover { background: var(--color-background-secondary); }
+  .compare-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .compare-table td, .compare-table th { padding: 6px 8px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .compare-table th { font-weight: 500; color: var(--color-text-secondary); text-align: left; font-size: 12px; }
+  .compare-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .preset-btn { font-size: 12px; padding: 4px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; }
+  .preset-btn:hover { background: var(--color-background-secondary); }
+  .moneyness-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: var(--border-radius-md); font-weight: 500; }
+  .badge-atm { background: #E1F5EE; color: #085041; }
+  .badge-itm { background: #E6F1FB; color: #0C447C; }
+  .badge-otm { background: #FAEEDA; color: #633806; }
+</style>
+
+<div style="padding: 1rem 0;">
+
+<div class="card">
+  <h3>Preset scenarios</h3>
+  <div class="preset-row">
+    <button class="preset-btn" onclick="setPreset('atm')">ATM (textbook)</button>
+    <button class="preset-btn" onclick="setPreset('itm')">ITM (in-the-money)</button>
+    <button class="preset-btn" onclick="setPreset('otm')">OTM (out-of-money)</button>
+    <button class="preset-btn" onclick="setPreset('highvol')">High volatility</button>
+    <button class="preset-btn" onclick="setPreset('shortexp')">Short expiry</button>
+  </div>
+  <div id="presetDesc" style="font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px; padding: 8px; background: var(--color-background-secondary); border-radius: var(--border-radius-md);"></div>
+
+  <div class="slider-row">
+    <span class="slider-label">S₀ (ราคาหุ้น)</span>
+    <input type="range" id="s0" min="50" max="200" step="1" value="100">
+    <span class="slider-val" id="s0v">100</span>
+  </div>
+  <div class="slider-row">
+    <span class="slider-label">K (Strike)</span>
+    <input type="range" id="k" min="50" max="200" step="1" value="100">
+    <span class="slider-val" id="kv">100</span>
+  </div>
+  <div class="slider-row">
+    <span class="slider-label">T (ปี)</span>
+    <input type="range" id="t" min="0.1" max="3" step="0.1" value="1">
+    <span class="slider-val" id="tv">1.0</span>
+  </div>
+  <div class="slider-row">
+    <span class="slider-label">r (risk-free)</span>
+    <input type="range" id="r" min="0" max="0.15" step="0.005" value="0.05">
+    <span class="slider-val" id="rv">5.0%</span>
+  </div>
+  <div class="slider-row">
+    <span class="slider-label">σ (volatility)</span>
+    <input type="range" id="sig" min="0.05" max="0.8" step="0.01" value="0.20">
+    <span class="slider-val" id="sigv">20.0%</span>
+  </div>
+  <div class="slider-row">
+    <span class="slider-label">N (simulations)</span>
+    <input type="range" id="n" min="1000" max="100000" step="1000" value="10000">
+    <span class="slider-val" id="nv">10,000</span>
+  </div>
+  <button id="runBtn">รัน Monte Carlo ใหม่</button>
+</div>
+
+<div class="row">
+  <div class="metric">
+    <p class="metric-label">Black-Scholes (exact)</p>
+    <p class="metric-value" id="bsPrice">—</p>
+    <p class="metric-sub" id="moneynessLabel">—</p>
+  </div>
+  <div class="metric">
+    <p class="metric-label">Monte Carlo</p>
+    <p class="metric-value" id="mcPrice">—</p>
+    <p class="metric-sub" id="mcCI">95% CI: —</p>
+  </div>
+  <div class="metric">
+    <p class="metric-label">|MC − BS| error</p>
+    <p class="metric-value" id="mcErr">—</p>
+    <p class="metric-sub" id="mcErrPct">—</p>
+  </div>
+  <div class="metric">
+    <p class="metric-label">% payoff > 0</p>
+    <p class="metric-value" id="pctPos">—</p>
+    <p class="metric-sub">paths ที่ expire ITM</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Payoff distribution — histogram</h3>
+  <div style="position:relative;width:100%;height:200px;"><canvas id="histChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h3>N × 4 rule — error halving test</h3>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>N</th><th>MC Price</th><th>Std Error</th><th>|MC−BS|</th><th>SE ratio</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"><tr><td colspan="5" style="text-align:center;color:var(--color-text-tertiary);">กด "รัน" เพื่อเริ่ม</td></tr></tbody>
+  </table>
+  <div style="margin-top:12px;" id="barDiv"></div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const presets = {
+  atm:      { s0:100, k:100, t:1.0, r:0.05, sig:0.20, n:10000, desc:"At-the-money (ATM): ราคาหุ้นเท่ากับ Strike พอดี — เป็น case ที่ histogram สวยที่สุด มี payoff > 0 ประมาณ 50% และ MC converge ดี" },
+  itm:      { s0:110, k:100, t:1.0, r:0.05, sig:0.20, n:10000, desc:"In-the-money (ITM): S₀ > K อยู่แล้ว ทำให้ option มีมูลค่ามากขึ้น histogram จะเอียงไปทางขวา payoff > 0 มากกว่า 50%" },
+  otm:      { s0:90,  k:100, t:1.0, r:0.05, sig:0.20, n:10000, desc:"Out-of-the-money (OTM): S₀ < K ส่วนใหญ่จะ expire ไร้ค่า histogram จะมี spike ที่ 0 สูงมาก — เหมือนปัญหาเดิมของ S=1.5, K=2" },
+  highvol:  { s0:100, k:100, t:1.0, r:0.05, sig:0.50, n:10000, desc:"High volatility (σ=50%): ความผันผวนสูง ทำให้ payoff กระจายกว้างมาก SE ของ MC สูงขึ้น ต้องการ N มากกว่าปกติเพื่อ converge" },
+  shortexp: { s0:100, k:100, t:0.25,r:0.05, sig:0.20, n:10000, desc:"Short expiry (T=3 เดือน): เวลาสั้น ทำให้ option ราคาต่ำและ payoff กระจุกใกล้ 0 มากกว่า — MC จะ converge เร็วกว่า" },
+};
+
+function setPreset(key) {
+  const p = presets[key];
+  document.getElementById('s0').value = p.s0;
+  document.getElementById('k').value  = p.k;
+  document.getElementById('t').value  = p.t;
+  document.getElementById('r').value  = p.r;
+  document.getElementById('sig').value= p.sig;
+  document.getElementById('n').value  = p.n;
+  document.getElementById('presetDesc').textContent = p.desc;
+  updateSliders();
+  run();
+}
+
+function norm_cdf(x) {
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign = x<0?-1:1; x=Math.abs(x);
+  const tt=1/(1+p*x);
+  const y=1-(((((a5*tt+a4)*tt)+a3)*tt+a2)*tt+a1)*tt*Math.exp(-x*x);
+  return 0.5*(1+sign*y);
+}
+
+function blackScholes(S,K,T,r,sig) {
+  const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));
+  const d2=d1-sig*Math.sqrt(T);
+  return S*norm_cdf(d1)-K*Math.exp(-r*T)*norm_cdf(d2);
+}
+
+function boxMuller() {
+  let u=0,v=0;
+  while(!u) u=Math.random();
+  while(!v) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function monteCarlo(S,K,T,r,sig,N) {
+  let sum=0,sum2=0,posCount=0;
+  const payoffs=[];
+  for(let i=0;i<N;i++){
+    const z=boxMuller();
+    const ST=S*Math.exp((r-0.5*sig*sig)*T+sig*Math.sqrt(T)*z);
+    const p=Math.max(ST-K,0);
+    payoffs.push(p);
+    sum+=p; sum2+=p*p;
+    if(p>0) posCount++;
+  }
+  const disc=Math.exp(-r*T);
+  const mean=sum/N;
+  const stdErr=Math.sqrt((sum2/N-mean*mean)/N)*disc;
+  return {price:disc*mean, stdErr, payoffs, posCount};
+}
+
+function updateSliders() {
+  document.getElementById('s0v').textContent = parseInt(document.getElementById('s0').value);
+  document.getElementById('kv').textContent  = parseInt(document.getElementById('k').value);
+  document.getElementById('tv').textContent  = parseFloat(document.getElementById('t').value).toFixed(1);
+  document.getElementById('rv').textContent  = (parseFloat(document.getElementById('r').value)*100).toFixed(1)+'%';
+  document.getElementById('sigv').textContent= (parseFloat(document.getElementById('sig').value)*100).toFixed(1)+'%';
+  document.getElementById('nv').textContent  = parseInt(document.getElementById('n').value).toLocaleString();
+}
+
+['s0','k','t','r','sig','n'].forEach(id=>document.getElementById(id).addEventListener('input',updateSliders));
+
+let histInst=null;
+
+function run() {
+  const S=parseFloat(document.getElementById('s0').value);
+  const K=parseFloat(document.getElementById('k').value);
+  const T=parseFloat(document.getElementById('t').value);
+  const r=parseFloat(document.getElementById('r').value);
+  const sig=parseFloat(document.getElementById('sig').value);
+  const N=parseInt(document.getElementById('n').value);
+
+  const bs=blackScholes(S,K,T,r,sig);
+  const mc=monteCarlo(S,K,T,r,sig,N);
+  const err=Math.abs(mc.price-bs);
+
+  const moneyness = S>K*1.02?'ITM':S<K*0.98?'OTM':'ATM';
+  const badgeClass = moneyness==='ATM'?'badge-atm':moneyness==='ITM'?'badge-itm':'badge-otm';
+  document.getElementById('bsPrice').textContent = bs.toFixed(4);
+  document.getElementById('moneynessLabel').innerHTML = `<span class="moneyness-badge ${badgeClass}">${moneyness}</span> S/K = ${(S/K).toFixed(2)}`;
+  document.getElementById('mcPrice').textContent = mc.price.toFixed(4);
+  document.getElementById('mcCI').textContent = `95% CI: ±${(1.96*mc.stdErr).toFixed(4)}`;
+  document.getElementById('mcErr').textContent = err.toFixed(4);
+  document.getElementById('mcErrPct').textContent = `${(err/bs*100).toFixed(2)}% จาก BS`;
+  document.getElementById('pctPos').textContent = (mc.posCount/N*100).toFixed(1)+'%';
+
+  const Ns=[N,N*4,N*16,N*64].filter(x=>x<=500000);
+  const rows=Ns.map(n2=>{
+    const r2=monteCarlo(S,K,T,r,sig,n2);
+    return {n:n2,price:r2.price,stdErr:r2.stdErr,absErr:Math.abs(r2.price-bs)};
+  });
+  const base=rows[0].stdErr;
+  document.getElementById('tableBody').innerHTML=rows.map((row,i)=>`
+    <tr>
+      <td>${row.n.toLocaleString()}</td>
+      <td>${row.price.toFixed(4)}</td>
+      <td>${row.stdErr.toFixed(5)}</td>
+      <td>${row.absErr.toFixed(5)}</td>
+      <td style="font-weight:${i===0?'500':'400'};color:${i===0?'var(--color-text-primary)':'var(--color-text-secondary)'}">
+        ${i===0?'1.000x (base)':(row.stdErr/base).toFixed(3)+'x'}
+      </td>
+    </tr>`).join('');
+
+  const maxSE=rows[0].stdErr;
+  const colors=['#378ADD','#1D9E75','#BA7517','#D85A30'];
+  document.getElementById('barDiv').innerHTML=rows.map((row,i)=>`
+    <div style="margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-secondary);margin-bottom:2px;">
+        <span>N=${row.n.toLocaleString()}</span>
+        <span>SE = ${row.stdErr.toFixed(5)} (${i===0?'base':'÷'+(2**(i)).toFixed(0)+' ≈ ×'+(row.stdErr/maxSE).toFixed(2)})</span>
+      </div>
+      <div style="height:8px;border-radius:4px;background:var(--color-background-secondary);overflow:hidden;">
+        <div style="height:100%;width:${(row.stdErr/maxSE*100).toFixed(1)}%;background:${colors[i]};border-radius:4px;"></div>
+      </div>
+    </div>`).join('');
+
+  const payoffs=mc.payoffs;
+  const maxP=Math.max(...payoffs,0.01);
+  const bins=50,binSize=maxP/bins;
+  const counts=new Array(bins).fill(0);
+  const zeroCount=payoffs.filter(p=>p===0).length;
+  payoffs.forEach(p=>{
+    if(p>0){const idx=Math.min(Math.floor(p/binSize),bins-1);counts[idx]++;}
+  });
+  const labels=counts.map((_,i)=>(i*binSize).toFixed(1));
+
+  if(histInst) histInst.destroy();
+  const isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  histInst=new Chart(document.getElementById('histChart'),{
+    type:'bar',
+    data:{
+      labels:['payoff=0\n('+zeroCount.toLocaleString()+' paths)',...labels.slice(1)],
+      datasets:[{
+        data:[zeroCount,...counts.slice(1)],
+        backgroundColor:[
+          isDark?'rgba(186,117,23,0.7)':'rgba(186,117,23,0.5)',
+          ...counts.slice(1).map(()=>isDark?'rgba(55,138,221,0.7)':'rgba(55,138,221,0.5)')
+        ],
+        borderWidth:0,borderRadius:2
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.toLocaleString()} paths`}}},
+      scales:{
+        x:{ticks:{maxTicksLimit:10,font:{size:10}},title:{display:true,text:'payoff value',font:{size:11}}},
+        y:{title:{display:true,text:'จำนวน paths',font:{size:11}}}
+      }
+    }
+  });
+}
+
+document.getElementById('runBtn').addEventListener('click',run);
+setPreset('atm');
+</script>
