@@ -17,7 +17,7 @@
   --border-radius-lg: 12px;
 }
 
-body { font-family: sans-serif; margin:0; padding:1rem; }
+body { font-family: sans-serif; margin:0; padding:1rem; background:#fafafa; }
 
 .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
 .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; }
@@ -32,35 +32,50 @@ body { font-family: sans-serif; margin:0; padding:1rem; }
 input[type=range] { flex: 1; }
 h3 { font-size: 13px; color: var(--color-text-secondary); }
 #runBtn { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+.compare-table { width:100%; border-collapse: collapse; font-size:13px;}
+.compare-table td, .compare-table th { padding:6px; border-bottom:1px solid #eee;}
 </style>
-
 </head>
 
 <body>
 
-<h2>Monte Carlo Option Pricing</h2>
+<h2>Monte Carlo ATM Call</h2>
+
+<div class="card">
 
 <div class="slider-row">
-  <span>S₀</span>
+  <span class="slider-label">S₀</span>
   <input type="range" id="s0" min="50" max="200" value="100">
-  <span id="s0v">100</span>
+  <span class="slider-val" id="s0v">100</span>
 </div>
 
 <div class="slider-row">
-  <span>K</span>
+  <span class="slider-label">K</span>
   <input type="range" id="k" min="50" max="200" value="100">
-  <span id="kv">100</span>
+  <span class="slider-val" id="kv">100</span>
 </div>
 
 <div class="slider-row">
-  <span>σ</span>
+  <span class="slider-label">σ</span>
   <input type="range" id="sig" min="0.05" max="0.8" step="0.01" value="0.2">
-  <span id="sigv">0.2</span>
+  <span class="slider-val" id="sigv">0.2</span>
 </div>
 
-<button id="runBtn">Run</button>
+<button id="runBtn">Run Monte Carlo</button>
 
-<p>MC Price: <span id="mcPrice">-</span></p>
+</div>
+
+<div class="row">
+  <div class="metric">
+    <p class="metric-label">Monte Carlo Price</p>
+    <p class="metric-value" id="mcPrice">—</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Histogram</h3>
+  <canvas id="histChart"></canvas>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
@@ -72,23 +87,47 @@ function boxMuller() {
   return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
 }
 
-function monteCarlo(S,K,sig,N=5000){
+function monteCarlo(S,K,sig,N=10000){
   let sum=0;
+  let payoffs=[];
   for(let i=0;i<N;i++){
     const z=boxMuller();
     const ST=S*Math.exp(sig*z);
-    sum+=Math.max(ST-K,0);
+    const p=Math.max(ST-K,0);
+    payoffs.push(p);
+    sum+=p;
   }
-  return sum/N;
+  return {price:sum/N, payoffs};
 }
+
+let chart;
 
 function run(){
   const S=parseFloat(s0.value);
   const K=parseFloat(k.value);
   const sig=parseFloat(sig.value);
 
-  const price=monteCarlo(S,K,sig);
-  mcPrice.textContent=price.toFixed(4);
+  const mc=monteCarlo(S,K,sig);
+  mcPrice.textContent=mc.price.toFixed(4);
+
+  const bins=30;
+  const max=Math.max(...mc.payoffs);
+  const size=max/bins;
+  let counts=new Array(bins).fill(0);
+
+  mc.payoffs.forEach(p=>{
+    const i=Math.min(Math.floor(p/size),bins-1);
+    counts[i]++;
+  });
+
+  if(chart) chart.destroy();
+  chart=new Chart(histChart,{
+    type:'bar',
+    data:{
+      labels:counts.map((_,i)=>(i*size).toFixed(1)),
+      datasets:[{data:counts}]
+    }
+  });
 }
 
 runBtn.onclick=run;
