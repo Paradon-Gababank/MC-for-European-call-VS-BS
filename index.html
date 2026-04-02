@@ -258,7 +258,10 @@ function run() {
   const labels=counts.map((_,i)=>(i*binSize).toFixed(1));
 
   if(histInst) histInst.destroy();
-  const isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  let isDark = false;
+try {
+  isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+} catch(e) {}
   histInst=new Chart(document.getElementById('histChart'),{
     type:'bar',
     data:{
